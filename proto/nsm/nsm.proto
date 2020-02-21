@@ -1,0 +1,100 @@
+/*
+ * Copyright (c) 2020 PANTHEON.tech s.r.o. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package upnp;
+
+option go_package = "go.cdnf.io/cnf-nsm/proto/nsm;nsm";
+
+// Corresponds to "MechanismType" from NSM terminology.
+enum ConnectionInterfaceType {
+  DEFAULT_INTERFACE = 0;
+  KERNEL_INTERFACE = 1;
+  MEM_INTERFACE = 3;
+}
+
+// Labels assigned to a connection either from the client or from the endpoint side.
+message ConnectionLabel {
+    string key = 1;
+    string value = 2;
+}
+
+// Client connected to a selected Network Service.
+message NetworkServiceClient {
+    // Name of the client (not part of the NSM protocol, used only for identification within the Ligato CNF-Agent).
+    string name = 1;
+
+    // Name of the network service to connect the client into.
+    string network_service = 2;
+
+    // Labels to be sent with the NS connection request.
+    repeated ConnectionLabel outgoing_labels = 3;
+
+    // Name assigned to the interface created for the connection.
+    string interface_name = 4;
+
+    // Type of the interface created for the connection.
+    ConnectionInterfaceType interface_type = 5;
+
+    // List of IP addresses (with prefixes) attached to the interface created for the connection.
+    repeated string ip_addresses = 6;
+
+    // MAC address to assign to the connection interface. Leave empty to automatically generate.
+    string phys_address = 7;
+}
+
+// Endpoint advertised within the selected Network Service.
+message NetworkServiceEndpoint {
+    // Name of the endpoint (not part of the NSM protocol, used only for identification within the Ligato CNF-Agent).
+    string name = 1;
+
+    // Name of the network service where the endpoint is announced.
+    string network_service = 2;
+
+    // Labels advertised by this endpoint.
+    repeated ConnectionLabel advertised_labels = 3;
+
+    // If enabled, only single client is expected to connect. Further connection requests will be declined.
+    bool single_client = 4;
+
+    // Prefix of the name assigned to interface created for every connection.
+    // The interface name suffix will be either taken from the client's outgoing label if interface_name_suffix_from_label
+    // is defined, or the first unused unsigned integer (i.e. starting with 0) will be appended.
+    // For example, with interface_name_prefix="nsm" and interface_name_suffix_from_label undefined, interfaces
+    // created for connected clients will be "nsm0", "nsm1", etc.
+    string interface_name_prefix = 5;
+
+    // By default, interface names are suffixed with integer indexes, starting from 0 (i.e. <prefix>0, <prefix>1, etc.)
+    // The disadvantage of this approach is that associations between interface names and opposing clients will depend
+    // on the order in which the clients are being (dis)connected, which in most cases is not deterministic.
+    // As an alternative, it is possible to use value of a client's outgoing label with the given key.
+    // For example, if client is defined with outgoing label "app"="nat" and interface_name_prefix="conn-", then
+    // if interface_name_suffix_from_label="app" the resulting interface name will be "conn-nat".
+    // If client doesn't define outgoing label with such key, the connection request will be declined.
+    string interface_name_suffix_from_label = 6;
+
+    // Type of the interface created for the connection.
+    ConnectionInterfaceType interface_type = 7;
+
+    // List of IP addresses (with prefixes) attached to the interface created for the connection.
+    // Supported only with single connected client (single_client=true).
+    repeated string ip_addresses = 8;
+
+    // MAC address to assign to the connection interface. Leave empty to automatically generate.
+    // Supported only with single connected client (single_client=true).
+    string phys_address = 9;
+}
