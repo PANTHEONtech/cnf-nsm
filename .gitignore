@@ -1,0 +1,4 @@
+.idea/*
+cmd/cnf-crd/cnf-crd
+cmd/nsm-agent/nsm-agent
+crdgen/*
