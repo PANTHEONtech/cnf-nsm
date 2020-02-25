@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 		inetutils-traceroute \
 		iproute2 \
 		iputils-ping \
+		curl \
  	&& rm -rf /var/lib/apt/lists/*
 
 # Install agent
@@ -22,5 +23,4 @@ COPY --from=base / /
 
 ENV CONFIG_DIR /opt/nsm-agent/
 
-ENTRYPOINT ["/bin/bash"]
-CMD ["-c", "/usr/local/bin/nsm-agent-linux"]
+CMD /usr/local/bin/nsm-agent-linux

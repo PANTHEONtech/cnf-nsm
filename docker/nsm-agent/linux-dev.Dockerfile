@@ -47,5 +47,4 @@ RUN cp cmd/nsm-agent-linux/nsm-agent-linux /usr/local/bin/nsm-agent-linux
 COPY ./docker/nsm-agent/etcd.conf /opt/nsm-agent/
 ENV CONFIG_DIR /opt/nsm-agent/
 
-ENTRYPOINT ["/bin/bash"]
-CMD ["-c", "/usr/local/bin/nsm-agent-linux"]
+CMD /usr/local/bin/nsm-agent-linux
