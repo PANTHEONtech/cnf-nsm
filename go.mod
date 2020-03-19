@@ -2,9 +2,8 @@ module go.cdnf.io/cnf-nsm
 
 require (
 	github.com/DataDog/zstd v1.4.4 // indirect
-	github.com/contiv/vpp v1.5.2-alpha.0.20200211134903-068a10bec504
-	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
-	github.com/frankban/quicktest v1.4.1 // indirect
+	github.com/contiv/vpp v1.5.2-alpha.0.20200318175526-1f82838c7251
+	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-redis/redis v6.15.6+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.3
@@ -14,14 +13,12 @@ require (
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
-	github.com/ligato/cn-infra v2.2.1-0.20191030081411-42c7431fdca1+incompatible
 	github.com/namsral/flag v1.7.4-pre
 	github.com/networkservicemesh/networkservicemesh/controlplane/api v0.2.0
 	github.com/networkservicemesh/networkservicemesh/sdk v0.2.0
-	github.com/pierrec/lz4 v2.2.6+incompatible // indirect
-	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191128022950-c6266f4fe8d7 // indirect
-	go.ligato.io/vpp-agent/v3 v3.0.0
+	go.ligato.io/cn-infra/v2 v2.5.0-alpha.0.20200313154441-b0d4c1b11c73
+	go.ligato.io/vpp-agent/v3 v3.1.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.17.1
 	k8s.io/client-go v11.0.0+incompatible

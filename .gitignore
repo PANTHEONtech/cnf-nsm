@@ -1,4 +1,5 @@
 .idea/*
 cmd/cnf-crd/cnf-crd
-cmd/nsm-agent/nsm-agent
+cmd/nsm-agent-linux/nsm-agent-linux
+cmd/nsm-agent-vpp/nsm-agent-vpp
 crdgen/*

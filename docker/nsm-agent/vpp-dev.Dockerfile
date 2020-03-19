@@ -1,6 +1,6 @@
 ARG VPP_VERSION=19.08
 ARG VPP_IMAGE=ligato/vpp-base:$VPP_VERSION
-ARG AGENT_IMAGE=ligato/vpp-agent:v2.3.0
+ARG AGENT_IMAGE=ligato/vpp-agent:v3.1.0
 
 FROM $AGENT_IMAGE as agent
 FROM $VPP_IMAGE
@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	rm -rf /var/lib/apt/lists/*
 
 # Install Go
-ENV GOLANG_VERSION 1.13.1
+ENV GOLANG_VERSION 1.14.1
 ENV GO111MODULE=on
 RUN set -eux; \
 	dpkgArch="$(dpkg --print-architecture)"; \

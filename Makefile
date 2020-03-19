@@ -5,7 +5,7 @@ VERSION := $(shell git describe --always --tags --dirty)
 COMMIT  := $(shell git rev-parse HEAD)
 DATE    := $(shell date +'%Y-%m-%dT%H:%M%:z')
 
-CNINFRA_AGENT := github.com/ligato/cn-infra/agent
+CNINFRA_AGENT := go.ligato.io/cn-infra/v2/agent
 LDFLAGS := -s -w -X $(CNINFRA_AGENT).BuildVersion=$(VERSION) -X $(CNINFRA_AGENT).CommitHash=$(COMMIT) -X $(CNINFRA_AGENT).BuildDate=$(DATE)
 
 CRDGEN_DEPS_DIR := "crdgen"
@@ -37,7 +37,7 @@ dep-install:
 	go mod download
 
 get-desc-adapter-generator:
-	go install github.com/ligato/vpp-agent/plugins/kvscheduler/descriptor-adapter
+	go install go.ligato.io/vpp-agent/v3/plugins/kvscheduler/descriptor-adapter
 
 gen: get-desc-adapter-generator dep-install
 	./scripts/gen-proto.sh

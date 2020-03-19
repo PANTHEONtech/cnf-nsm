@@ -18,12 +18,13 @@ package cnfconfig
 
 import (
 	"errors"
-	"github.com/ligato/cn-infra/logging"
+
+	"go.ligato.io/cn-infra/v2/logging"
 
 	contiv_customconfig "github.com/contiv/vpp/plugins/crd/handler/customconfiguration"
 	contiv_kvdbreflector "github.com/contiv/vpp/plugins/crd/handler/kvdbreflector"
 	contiv_crd "github.com/contiv/vpp/plugins/crd/pkg/apis/contivppio/v1"
-	"go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/apis/pantheontech/v1"
+	v1 "go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/apis/pantheontech/v1"
 	crdClientSet "go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/client/clientset/versioned"
 )
 
