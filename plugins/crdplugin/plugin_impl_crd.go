@@ -25,10 +25,10 @@ import (
 	"github.com/namsral/flag"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/ligato/cn-infra/config"
-	"github.com/ligato/cn-infra/db/keyval/etcd"
-	"github.com/ligato/cn-infra/infra"
-	"github.com/ligato/cn-infra/logging"
+	"go.ligato.io/cn-infra/v2/config"
+	"go.ligato.io/cn-infra/v2/db/keyval/etcd"
+	"go.ligato.io/cn-infra/v2/infra"
+	"go.ligato.io/cn-infra/v2/logging"
 
 	contiv_controller "github.com/contiv/vpp/plugins/crd/controller"
 	contiv_customconfig "github.com/contiv/vpp/plugins/crd/handler/customconfiguration"
@@ -36,7 +36,7 @@ import (
 
 	"go.cdnf.io/cnf-nsm/plugins/crdplugin/cnfconfig"
 	"go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/apis/pantheontech"
-	"go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/apis/pantheontech/v1"
+	v1 "go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/apis/pantheontech/v1"
 
 	crdClientSet "go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/client/clientset/versioned"
 	factory "go.cdnf.io/cnf-nsm/plugins/crdplugin/pkg/client/informers/externalversions"

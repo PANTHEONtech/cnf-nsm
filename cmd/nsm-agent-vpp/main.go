@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ligato/cn-infra/agent"
-	"github.com/ligato/cn-infra/logging"
 	"go.cdnf.io/cnf-nsm/cmd/nsm-agent-vpp/app"
+	"go.ligato.io/cn-infra/v2/agent"
+	"go.ligato.io/cn-infra/v2/logging"
 )
 
 const logo = "    _   _______ __  ___   ___                    __ \n" +

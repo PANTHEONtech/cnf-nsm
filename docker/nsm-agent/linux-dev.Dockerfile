@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	rm -rf /var/lib/apt/lists/*
 
 # Install Go
-ENV GOLANG_VERSION 1.13.1
+ENV GOLANG_VERSION 1.14.1
 ENV GO111MODULE=on
 RUN set -eux; \
 	dpkgArch="$(dpkg --print-architecture)"; \

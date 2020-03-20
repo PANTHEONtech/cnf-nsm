@@ -17,9 +17,9 @@
 package crdplugin
 
 import (
-	"github.com/ligato/cn-infra/config"
-	"github.com/ligato/cn-infra/db/keyval/etcd"
-	"github.com/ligato/cn-infra/logging"
+	"go.ligato.io/cn-infra/v2/config"
+	"go.ligato.io/cn-infra/v2/db/keyval/etcd"
+	"go.ligato.io/cn-infra/v2/logging"
 )
 
 const (

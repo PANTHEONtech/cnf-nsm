@@ -17,7 +17,7 @@
 package nsmplugin
 
 import (
-	"github.com/ligato/cn-infra/infra"
+	"go.ligato.io/cn-infra/v2/infra"
 
 	"go.cdnf.io/cnf-nsm/plugins/nsmplugin/descriptor"
 	"go.ligato.io/vpp-agent/v3/client"

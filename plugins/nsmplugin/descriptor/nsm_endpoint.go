@@ -28,8 +28,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	"github.com/ligato/cn-infra/datasync"
-	"github.com/ligato/cn-infra/logging"
+	"go.ligato.io/cn-infra/v2/datasync"
+	"go.ligato.io/cn-infra/v2/logging"
 	"go.ligato.io/vpp-agent/v3/client"
 	kvs "go.ligato.io/vpp-agent/v3/plugins/kvscheduler/api"
 	linux_interfaces "go.ligato.io/vpp-agent/v3/proto/ligato/linux/interfaces"

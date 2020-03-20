@@ -1,5 +1,5 @@
 ARG VPP_VERSION=19.08
-ARG AGENT_IMAGE=ligato/vpp-agent:v2.3.0
+ARG AGENT_IMAGE=ligato/vpp-agent:v3.1.0
 ARG DEV_IMAGE=nsm-agent-vpp-dev:$VPP_VERSION
 
 FROM $AGENT_IMAGE as agent
