@@ -4,9 +4,8 @@ package adapter
 
 import (
 	"github.com/golang/protobuf/proto"
-	"go.cdnf.io/cnf-nsm/plugins/nsmplugin/nsmetadata"
-	"go.cdnf.io/cnf-nsm/proto/nsm"
 	. "go.ligato.io/vpp-agent/v3/plugins/kvscheduler/api"
+	"go.cdnf.io/cnf-nsm/proto/nsm"
 )
 
 ////////// type-safe key-value pair with metadata //////////
@@ -14,7 +13,7 @@ import (
 type NSMEndpointKVWithMetadata struct {
 	Key      string
 	Value    *nsm.NetworkServiceEndpoint
-	Metadata *nsmetadata.NsmEndpointMetadata
+	Metadata interface{}
 	Origin   ValueOrigin
 }
 
@@ -30,10 +29,10 @@ type NSMEndpointDescriptor struct {
 	WithMetadata         bool
 	MetadataMapFactory   MetadataMapFactory
 	Validate             func(key string, value *nsm.NetworkServiceEndpoint) error
-	Create               func(key string, value *nsm.NetworkServiceEndpoint) (metadata *nsmetadata.NsmEndpointMetadata, err error)
-	Delete               func(key string, value *nsm.NetworkServiceEndpoint, metadata *nsmetadata.NsmEndpointMetadata) error
-	Update               func(key string, oldValue, newValue *nsm.NetworkServiceEndpoint, oldMetadata *nsmetadata.NsmEndpointMetadata) (newMetadata *nsmetadata.NsmEndpointMetadata, err error)
-	UpdateWithRecreate   func(key string, oldValue, newValue *nsm.NetworkServiceEndpoint, metadata *nsmetadata.NsmEndpointMetadata) bool
+	Create               func(key string, value *nsm.NetworkServiceEndpoint) (metadata interface{}, err error)
+	Delete               func(key string, value *nsm.NetworkServiceEndpoint, metadata interface{}) error
+	Update               func(key string, oldValue, newValue *nsm.NetworkServiceEndpoint, oldMetadata interface{}) (newMetadata interface{}, err error)
+	UpdateWithRecreate   func(key string, oldValue, newValue *nsm.NetworkServiceEndpoint, metadata interface{}) bool
 	Retrieve             func(correlate []NSMEndpointKVWithMetadata) ([]NSMEndpointKVWithMetadata, error)
 	IsRetriableFailure   func(err error) bool
 	DerivedValues        func(key string, value *nsm.NetworkServiceEndpoint) []KeyValuePair
@@ -222,11 +221,11 @@ func castNSMEndpointValue(key string, value proto.Message) (*nsm.NetworkServiceE
 	return typedValue, nil
 }
 
-func castNSMEndpointMetadata(key string, metadata Metadata) (*nsmetadata.NsmEndpointMetadata, error) {
+func castNSMEndpointMetadata(key string, metadata Metadata) (interface{}, error) {
 	if metadata == nil {
 		return nil, nil
 	}
-	typedMetadata, ok := metadata.(*nsmetadata.NsmEndpointMetadata)
+	typedMetadata, ok := metadata.(interface{})
 	if !ok {
 		return nil, ErrInvalidMetadataType(key)
 	}

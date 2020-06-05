@@ -4,9 +4,9 @@ package adapter
 
 import (
 	"github.com/golang/protobuf/proto"
-	"go.cdnf.io/cnf-nsm/plugins/nsmplugin/nsmetadata"
-	"go.cdnf.io/cnf-nsm/proto/nsm"
 	. "go.ligato.io/vpp-agent/v3/plugins/kvscheduler/api"
+	"go.cdnf.io/cnf-nsm/proto/nsm"
+	"go.cdnf.io/cnf-nsm/plugins/nsmplugin/nsmetadata"
 )
 
 ////////// type-safe key-value pair with metadata //////////

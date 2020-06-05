@@ -25,6 +25,7 @@ import (
 	"go.ligato.io/cn-infra/v2/logging/logrus"
 
 	// load all VPP-agent models for CNFConfiguration CRD handler to use
+	_ "go.cdnf.io/cnf-nsm/proto/nsm"
 	_ "go.ligato.io/vpp-agent/v3/proto/ligato/linux"
 	_ "go.ligato.io/vpp-agent/v3/proto/ligato/linux/iptables"
 	_ "go.ligato.io/vpp-agent/v3/proto/ligato/vpp"

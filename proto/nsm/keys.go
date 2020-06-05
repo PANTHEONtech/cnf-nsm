@@ -40,6 +40,9 @@ var ModelNSMEndpoint = models.Register(
 		Version: "v1",
 		Type:    "endpoint",
 	},
+	models.WithNameTemplate(
+		"{{.NetworkService}}",
+	),
 )
 
 // notifications

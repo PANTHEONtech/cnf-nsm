@@ -25,7 +25,7 @@ import (
 )
 
 //go:generate descriptor-adapter --descriptor-name NSMClient --value-type *nsm.NetworkServiceClient --meta-type *nsmetadata.NsmClientMetadata --import "go.cdnf.io/cnf-nsm/proto/nsm" --import "go.cdnf.io/cnf-nsm/plugins/nsmplugin/nsmetadata" --output-dir "descriptor"
-//go:generate descriptor-adapter --descriptor-name NSMEndpoint --value-type *nsm.NetworkServiceEndpoint --meta-type *nsmetadata.NsmEndpointMetadata --import "go.cdnf.io/cnf-nsm/proto/nsm" --import "go.cdnf.io/cnf-nsm/plugins/nsmplugin/nsmetadata" --output-dir "descriptor"
+//go:generate descriptor-adapter --descriptor-name NSMEndpoint --value-type *nsm.NetworkServiceEndpoint --import "go.cdnf.io/cnf-nsm/proto/nsm" --output-dir "descriptor"
 
 // NSMPlugin allows integration with Network Service Mesh.
 type NSMPlugin struct {

@@ -19,22 +19,10 @@ package nsmetadata
 import (
 	nsm_connection "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
 	nsm_client "github.com/networkservicemesh/networkservicemesh/sdk/client"
-	nsm_endpoint "github.com/networkservicemesh/networkservicemesh/sdk/endpoint"
 )
 
 // NsmClientMetadata encapsulates metadata stored alongside opened client connection.
 type NsmClientMetadata struct {
 	NsmClient *nsm_client.NsmClient
 	NsmConn   *nsm_connection.Connection
-}
-
-// Endpoint is implemented by NSMPluginEndpoint.
-type Endpoint interface {
-	CloseConnections() error
-}
-
-// NsmEndpointMetadata encapsulates metadata stored alongside running endpoint.
-type NsmEndpointMetadata struct {
-	Endpoint    Endpoint
-	NsmEndpoint nsm_endpoint.NsmEndpoint
 }

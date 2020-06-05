@@ -15,10 +15,12 @@ require (
 	github.com/hashicorp/serf v0.8.5 // indirect
 	github.com/namsral/flag v1.7.4-pre
 	github.com/networkservicemesh/networkservicemesh/controlplane/api v0.2.0
+	github.com/networkservicemesh/networkservicemesh/pkg v0.2.0
 	github.com/networkservicemesh/networkservicemesh/sdk v0.2.0
 	github.com/yuin/gopher-lua v0.0.0-20191128022950-c6266f4fe8d7 // indirect
 	go.ligato.io/cn-infra/v2 v2.5.0-alpha.0.20200313154441-b0d4c1b11c73
 	go.ligato.io/vpp-agent/v3 v3.1.0
+	google.golang.org/grpc v1.27.1
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.17.1
 	k8s.io/client-go v11.0.0+incompatible

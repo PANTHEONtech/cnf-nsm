@@ -20,11 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net"
 	"os"
 	"path"
 	"strconv"
 	"sync"
 
+	"google.golang.org/grpc"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
@@ -36,15 +38,17 @@ import (
 	vpp_interfaces "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/interfaces"
 
 	"go.cdnf.io/cnf-nsm/plugins/nsmplugin/descriptor/adapter"
-	"go.cdnf.io/cnf-nsm/plugins/nsmplugin/nsmetadata"
 	"go.cdnf.io/cnf-nsm/proto/nsm"
 
 	nsm_connection "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
 	nsm_common "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/common"
 	nsm_memif "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/memif"
+	nsm_registry "github.com/networkservicemesh/networkservicemesh/controlplane/api/registry"
+	nsm_span "github.com/networkservicemesh/networkservicemesh/pkg/tools/spanhelper"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
 	nsm_sdk_common "github.com/networkservicemesh/networkservicemesh/sdk/common"
 	nsm_sdk_endpoint "github.com/networkservicemesh/networkservicemesh/sdk/endpoint"
+	nsm_sdk_tools "github.com/networkservicemesh/networkservicemesh/pkg/tools"
 )
 
 const (
@@ -69,6 +73,7 @@ type NSMEndpointDescriptor struct {
 	log            logging.Logger
 	localclient    client.ConfigClient
 	notifPublisher NotificationPublisher
+	epDemux        *NSMEndpointDemux
 }
 
 // NotificationPublisher is an optional dependency of the NSM Endpoint descriptor which, if injected, is used
@@ -78,16 +83,34 @@ type NotificationPublisher interface {
 	Delete(key string, opts ...datasync.DelOption) (existed bool, err error)
 }
 
-// NSMPluginEndpoint implements the Network service endpoint functionality needed for NSM plugin.
+// NSMEndpoint implements the Network service endpoint functionality needed for NSM plugin.
 // Most importantly it creates the connection interface with the requested configuration.
-type NSMPluginEndpoint struct {
-	sync.Mutex
+type NSMEndpoint struct {
 	log         logging.Logger
 	localclient client.ConfigClient
 	cfg         *nsm.NetworkServiceEndpoint
 	connections map[string]nsmConnection
 }
 
+// NSMEndpointDemux routes connection request to the corresponding network service.
+type NSMEndpointDemux struct {
+	sync.Mutex
+	log         logging.Logger
+	connected   bool
+	grpcServer  *grpc.Server
+	nsmConn     *nsm_sdk_common.NsmConnection
+	nsmRegistry nsm_registry.NetworkServiceRegistryClient
+	endpoints   map[string]*endpointReg // key = network service name
+}
+
+// Endpoint registration.
+type endpointReg struct {
+	EpName  string
+	Service networkservice.NetworkServiceServer
+	Close   func() error
+}
+
+// Connection between NSM client and NSM endpoint.
 type nsmConnection struct {
 	index int
 	conn  *nsm_connection.Connection
@@ -101,6 +124,7 @@ func NewNSMEndpointDescriptor(log logging.PluginLogger, localclient client.Confi
 		log:            log.NewLogger(nsmEndopintDescriptorName),
 		localclient:    localclient,
 		notifPublisher: notifPublisher,
+		epDemux:        NewNSMEndpointDemux(log.NewLogger("nsm-endpoint-demux")),
 	}
 	typedDescr := &adapter.NSMEndpointDescriptor{
 		Name:          nsmEndopintDescriptorName,
@@ -116,11 +140,11 @@ func NewNSMEndpointDescriptor(log logging.PluginLogger, localclient client.Confi
 	return descrCtx, adapter.NewNSMEndpointDescriptor(typedDescr)
 }
 
-// NewNSMPluginEndpoint creates a NSMPluginEndpoint.
-func NewNSMPluginEndpoint(cfg *nsm.NetworkServiceEndpoint, log logging.Logger,
-	localclient client.ConfigClient) *NSMPluginEndpoint {
+// NewNSMEndpoint creates an instance of NSMEndpoint.
+func NewNSMEndpoint(cfg *nsm.NetworkServiceEndpoint, log logging.Logger,
+	localclient client.ConfigClient) *NSMEndpoint {
 
-	return &NSMPluginEndpoint{
+	return &NSMEndpoint{
 		cfg:         cfg,
 		log:         log,
 		localclient: localclient,
@@ -128,12 +152,16 @@ func NewNSMPluginEndpoint(cfg *nsm.NetworkServiceEndpoint, log logging.Logger,
 	}
 }
 
+// NewNSMEndpoint creates an instance of NSMEndpointDemux.
+func NewNSMEndpointDemux(log logging.Logger) *NSMEndpointDemux {
+	return &NSMEndpointDemux{
+		log:      log,
+		endpoints: make(map[string]*endpointReg),
+	}
+}
+
 // Validate validates NSM-Endpoint configuration.
 func (d *NSMEndpointDescriptor) Validate(key string, cfg *nsm.NetworkServiceEndpoint) error {
-	// validate name
-	if cfg.GetName() == "" {
-		return kvs.NewInvalidValueError(ErrEndpointWithoutName, "name")
-	}
 	if cfg.GetNetworkService() == "" {
 		return kvs.NewInvalidValueError(ErrEndpointWithoutNetworkService, "network_service")
 	}
@@ -144,7 +172,7 @@ func (d *NSMEndpointDescriptor) Validate(key string, cfg *nsm.NetworkServiceEndp
 }
 
 // Creates announces new endpoint within a given network service.
-func (d *NSMEndpointDescriptor) Create(key string, cfg *nsm.NetworkServiceEndpoint) (metadata *nsmetadata.NsmEndpointMetadata, err error) {
+func (d *NSMEndpointDescriptor) Create(key string, cfg *nsm.NetworkServiceEndpoint) (metadata interface{}, err error) {
 	// prepare NSM endpoint configuration
 	configuration := nsm_sdk_common.FromEnv()
 	configuration.MechanismType = nsmMechanismFrominterfaceType(cfg.GetInterfaceType())
@@ -154,10 +182,13 @@ func (d *NSMEndpointDescriptor) Create(key string, cfg *nsm.NetworkServiceEndpoi
 	// Currently NSM is unable/refuses to create IP-less connections (SrcIpRequired & DstIpRequired are always enabled
 	// by NsmClient.Connect). Therefore we generate a dummy subnet from within the reserved IP address block 0.0.0.0/8
 	// that is unlikely to collide with subnets generated for other clients/endpoints of this agent instance.
-	configuration.IPAddress = generateDummySubnet("endpoint-" + cfg.GetName())
+	configuration.IPAddress = generateDummySubnet("endpoint-" + cfg.GetNetworkService())
 
 	// build NSM endpoint using composite
-	ep := NewNSMPluginEndpoint(cfg, d.log, d.localclient)
+	ep := NewNSMEndpoint(cfg, d.log, d.localclient)
+	closer := func() error {
+		return ep.CloseConnections()
+	}
 	compositeEndpoints := []networkservice.NetworkServiceServer{
 		nsm_sdk_endpoint.NewMonitorEndpoint(configuration),
 		nsm_sdk_endpoint.NewConnectionEndpoint(configuration),
@@ -166,23 +197,11 @@ func (d *NSMEndpointDescriptor) Create(key string, cfg *nsm.NetworkServiceEndpoi
 	}
 	composite := nsm_sdk_endpoint.NewCompositeEndpoint(compositeEndpoints...)
 
-	// initialize NSM endpoint
-	nsEndpoint, err := nsm_sdk_endpoint.NewNSMEndpoint(context.Background(), configuration, composite)
+	// Register endpoint with the demultiplexer.
+	err = d.epDemux.AddEndpoint(context.Background(), configuration, composite, closer)
 	if err != nil {
 		d.log.Error(err)
 		return nil, err
-	}
-
-	// start the endpoint, it will be ready to accept client connections from now on
-	err = nsEndpoint.Start()
-	if err != nil {
-		_ = nsEndpoint.Delete()
-		d.log.Error(err)
-		return nil, err
-	}
-	metadata = &nsmetadata.NsmEndpointMetadata{
-		Endpoint:    ep,
-		NsmEndpoint: nsEndpoint,
 	}
 
 	// publish notification about the newly registered endpoint
@@ -199,15 +218,12 @@ func (d *NSMEndpointDescriptor) Create(key string, cfg *nsm.NetworkServiceEndpoi
 }
 
 // Delete removes NSM endpoint.
-func (d *NSMEndpointDescriptor) Delete(key string, cfg *nsm.NetworkServiceEndpoint, metadata *nsmetadata.NsmEndpointMetadata) error {
-	err := metadata.Endpoint.CloseConnections()
+func (d *NSMEndpointDescriptor) Delete(key string, cfg *nsm.NetworkServiceEndpoint, metadata interface{}) error {
+	err := d.epDemux.DeleteEndpoint(context.Background(), cfg.GetNetworkService())
 	if err != nil {
 		d.log.Warn(err)
 	}
-	err = metadata.NsmEndpoint.Delete()
-	if err != nil {
-		d.log.Warn(err)
-	}
+
 	// publish notification about the removed endpoint
 	if d.notifPublisher != nil {
 		for _, label := range cfg.AdvertisedLabels {
@@ -218,14 +234,171 @@ func (d *NSMEndpointDescriptor) Delete(key string, cfg *nsm.NetworkServiceEndpoi
 			}
 		}
 	}
+	return nil
+}
+
+// AddEndpoint registers new NSM endpoint with the demultiplexer.
+func (x *NSMEndpointDemux) AddEndpoint(ctx context.Context, configuration *nsm_sdk_common.NSConfiguration,
+	service networkservice.NetworkServiceServer, closer func() error) (err error) {
+	x.Lock()
+	defer x.Unlock()
+	nseName := configuration.AdvertiseNseName
+
+	// Create connection to NSM and start gRPC server if it has not been done already
+	if !x.connected {
+		// Connect to NSM.
+		x.nsmConn, err = nsm_sdk_common.NewNSMConnection(ctx, configuration)
+		if err != nil {
+			x.log.Error(err)
+			return err
+		}
+
+		// Start gRPC server for processing connection requests.
+		x.grpcServer = nsm_sdk_tools.NewServer(ctx)
+		networkservice.RegisterNetworkServiceServer(x.grpcServer, x)
+		err = nsm_sdk_endpoint.Init(service, &nsm_sdk_endpoint.InitContext{
+			GrpcServer: x.grpcServer,
+		})
+		if err != nil {
+			return err
+		}
+
+		if err = nsm_sdk_tools.SocketCleanup(configuration.NsmClientSocket); err != nil {
+			x.log.Errorf("Failed to cleanup stale socket %s with error: %v", configuration.NsmClientSocket, err)
+			return err
+		}
+		connectionServer, err := net.Listen("unix", configuration.NsmClientSocket)
+		if err != nil {
+			x.log.Errorf("Failed to listen on a NSM socket %s with error: %v", configuration.NsmClientSocket, err)
+			return err
+		}
+		x.log.Infof("Listening on NSM socket %s", configuration.NsmClientSocket)
+
+		go func() {
+			if err := x.grpcServer.Serve(connectionServer); err != nil {
+				x.log.Fatalf("Failed to start grpc server on NSM socket %v with error: %v ",
+					configuration.NsmClientSocket, err)
+			}
+		}()
+
+		// Connect to NSM registry.
+		x.nsmRegistry = nsm_registry.NewNetworkServiceRegistryClient(x.nsmConn.GrpcClient)
+		x.connected = true
+	}
+
+	// Register new endpoint.
+	span := nsm_span.FromContext(ctx, fmt.Sprintf("Endpoint-%v-Start", nseName))
+	span.LogObject("labels", configuration.AdvertiseNseLabels)
+	defer span.Finish()
+
+	nse := &nsm_registry.NetworkServiceEndpoint{
+		NetworkServiceName: nseName,
+		Payload:            "IP",
+		Labels:             nsm_sdk_tools.ParseKVStringToMap(configuration.AdvertiseNseLabels, ",", "="),
+	}
+	registration := &nsm_registry.NSERegistration{
+		NetworkService: &nsm_registry.NetworkService{
+			Name:    nseName,
+			Payload: "IP",
+		},
+		NetworkServiceEndpoint: nse,
+	}
+	span.LogObject("nse-request", registration)
+
+	registeredNSE, err := x.nsmRegistry.RegisterNSE(span.Context(), registration)
+	if err != nil {
+		x.log.Errorf("Unable to register NSM endpoint: %v", err)
+		return err
+	}
+	endpointName := registeredNSE.GetNetworkServiceEndpoint().GetName()
+	x.endpoints[nseName] = &endpointReg{
+		EpName:  endpointName,
+		Service: service,
+		Close:   closer,
+	}
+	x.log.Infof("Added endpoint %s for network service %s", endpointName, nseName)
+	span.LogObject("endpoint-name", endpointName)
+	span.Logger().Infof("NSE registered: %v", registeredNSE)
+	span.Logger().Infof("NSE: channel has been successfully advertised, waiting for connection from NSM...")
+	return nil
+}
+
+// DeleteEndpoint unregisters NSM endpoint.
+func (x *NSMEndpointDemux) DeleteEndpoint(ctx context.Context, nseName string) (err error) {
+	x.Lock()
+	defer x.Unlock()
+
+	ep, epExists := x.endpoints[nseName]
+	if !epExists {
+		err = fmt.Errorf("no such endpoint: %s", nseName)
+		x.log.Error(err)
+		return err
+	}
+
+	// Close all connections with NSM clients first.
+	err = ep.Close()
+	if err != nil {
+		x.log.Error(err)
+		return err
+	}
+
+	// Unregister the endpoint.
+	span := nsm_span.FromContext(ctx, fmt.Sprintf("Endpoint-%v-Delete", nseName))
+	defer span.Finish()
+	removeNSE := &nsm_registry.RemoveNSERequest{
+		NetworkServiceEndpointName: ep.EpName,
+	}
+	span.LogObject("delete-request", removeNSE)
+	_, err = x.nsmRegistry.RemoveNSE(span.Context(), removeNSE)
+	if err != nil {
+		span.Logger().Errorf("Failed removing NSE: %v, with %v", removeNSE, err)
+		x.log.Error(err)
+		return err
+	}
+	delete(x.endpoints, nseName)
+	x.log.Infof("Deleted endpoint %s from network service %s", ep.EpName, nseName)
 	return err
 }
 
-// Request creates the connection interface on the endpoint side.
-func (e *NSMPluginEndpoint) Request(ctx context.Context,
+// Request routes the connection request to the corresponding endpoint by the network service name.
+func (x *NSMEndpointDemux) Request(ctx context.Context,
 	request *networkservice.NetworkServiceRequest) (*nsm_connection.Connection, error) {
-	e.Lock()
-	defer e.Unlock()
+	x.Lock()
+	defer x.Unlock()
+
+	nsmConn := request.GetConnection()
+	nseName := nsmConn.GetNetworkService()
+	ep, epExists := x.endpoints[nseName]
+	if !epExists {
+		err := fmt.Errorf("no such service: %v", nseName)
+		x.log.Error(err)
+		return nsmConn, err
+	}
+	x.log.Infof("Routing connection request (id=%s) to endpoint %s (nse: %s)",
+		request.GetConnection().GetId(), ep.EpName, nseName)
+	return ep.Service.Request(ctx, request)
+}
+
+// Request routes the request to close a connection to the corresponding endpoint by the network service name.
+func (x *NSMEndpointDemux) Close(ctx context.Context, conn *nsm_connection.Connection) (*empty.Empty, error) {
+	x.Lock()
+	defer x.Unlock()
+
+	nseName := conn.GetNetworkService()
+	ep, epExists := x.endpoints[nseName]
+	if !epExists {
+		err := fmt.Errorf("no such service: %v", nseName)
+		x.log.Error(err)
+		return &empty.Empty{}, err
+	}
+	x.log.Infof("Routing request to close connection (id=%s) to endpoint %s (nse: %s)",
+		conn.GetId(), ep.EpName, nseName)
+	return ep.Service.Close(ctx, conn)
+}
+
+// Request creates the connection interface on the endpoint side.
+func (e *NSMEndpoint) Request(ctx context.Context,
+	request *networkservice.NetworkServiceRequest) (*nsm_connection.Connection, error) {
 
 	// check if this is the same client trying to connect again
 	nsmConn := request.GetConnection()
@@ -261,10 +434,7 @@ func (e *NSMPluginEndpoint) Request(ctx context.Context,
 }
 
 // Close removes the connection interface on the endpoint side.
-func (e *NSMPluginEndpoint) Close(ctx context.Context, nsmConn *nsm_connection.Connection) (*empty.Empty, error) {
-	e.Lock()
-	defer e.Unlock()
-
+func (e *NSMEndpoint) Close(ctx context.Context, nsmConn *nsm_connection.Connection) (*empty.Empty, error) {
 	if err := e.closeConnection(ctx, nsmConn); err != nil {
 		return &empty.Empty{}, err
 	}
@@ -276,10 +446,7 @@ func (e *NSMPluginEndpoint) Close(ctx context.Context, nsmConn *nsm_connection.C
 }
 
 // CloseConnections closes all active connections.
-func (e *NSMPluginEndpoint) CloseConnections() error {
-	e.Lock()
-	defer e.Unlock()
-
+func (e *NSMEndpoint) CloseConnections() error {
 	for _, c := range e.connections {
 		err := e.closeConnection(context.Background(), c.conn)
 		if err != nil {
@@ -289,7 +456,7 @@ func (e *NSMPluginEndpoint) CloseConnections() error {
 	return nil
 }
 
-func (e *NSMPluginEndpoint) closeConnection(ctx context.Context, nsmConn *nsm_connection.Connection) error {
+func (e *NSMEndpoint) closeConnection(ctx context.Context, nsmConn *nsm_connection.Connection) error {
 	// remove the connection interface
 	config, _, err := e.buildInterfaceConfig(e.cfg, nsmConn)
 	if err != nil {
@@ -306,12 +473,12 @@ func (e *NSMPluginEndpoint) closeConnection(ctx context.Context, nsmConn *nsm_co
 }
 
 // Name returns the composite name.
-func (e *NSMPluginEndpoint) Name() string {
-	return "NSM Plugin"
+func (e *NSMEndpoint) Name() string {
+	return "NSM Plugin Endpoint"
 }
 
 // buildInterfaceConfig returns the configuration of the interface corresponding to the given connection.
-func (e *NSMPluginEndpoint) buildInterfaceConfig(cfg *nsm.NetworkServiceEndpoint, conn *nsm_connection.Connection) (
+func (e *NSMEndpoint) buildInterfaceConfig(cfg *nsm.NetworkServiceEndpoint, conn *nsm_connection.Connection) (
 	iface proto.Message, index int, err error) {
 
 	// TODO: consider using IPAM provided by NSM (see UniversalCNFVPPAgentBackend.ProcessEndpoint())
@@ -379,7 +546,7 @@ func (e *NSMPluginEndpoint) buildInterfaceConfig(cfg *nsm.NetworkServiceEndpoint
 	return
 }
 
-func (e *NSMPluginEndpoint) getConnectionIndex(conn *nsm_connection.Connection) int {
+func (e *NSMEndpoint) getConnectionIndex(conn *nsm_connection.Connection) int {
 	c, has := e.connections[conn.GetId()]
 	if !has {
 		index := e.allocateConnectionIndex()
@@ -389,7 +556,7 @@ func (e *NSMPluginEndpoint) getConnectionIndex(conn *nsm_connection.Connection) 
 	return c.index
 }
 
-func (e *NSMPluginEndpoint) allocateConnectionIndex() int {
+func (e *NSMEndpoint) allocateConnectionIndex() int {
 	var index int
 	for e.usesConnectionIndex(index) {
 		index++
@@ -397,7 +564,7 @@ func (e *NSMPluginEndpoint) allocateConnectionIndex() int {
 	return index
 }
 
-func (e *NSMPluginEndpoint) usesConnectionIndex(index int) bool {
+func (e *NSMEndpoint) usesConnectionIndex(index int) bool {
 	for _, conn := range e.connections {
 		if index == conn.index {
 			return true

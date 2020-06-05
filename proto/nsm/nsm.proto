@@ -59,10 +59,10 @@ message NetworkServiceClient {
 
 // Endpoint advertised within the selected Network Service.
 message NetworkServiceEndpoint {
-    // Name of the endpoint (not part of the NSM protocol, used only for identification within the Ligato CNF-Agent).
-    string name = 1;
-
     // Name of the network service where the endpoint is announced.
+    // At most once endpoint is possible to register for a given network service. This limitation is imposed
+    // by the design of NSM - all requests for connection with an endpoint goes through the same link (unix socket)
+    // and there is not enough information inside request contexts to be able to dissect them between multiple endpoints.
     string network_service = 2;
 
     // Labels advertised by this endpoint.
