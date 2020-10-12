@@ -1,4 +1,4 @@
-ARG DEV_IMAGE=nsm-agent-linux-dev:$VPP_VERSION
+ARG DEV_IMAGE=nsm-agent-linux-dev:$VERSION
 
 FROM $DEV_IMAGE as dev
 FROM ubuntu:18.04 as base

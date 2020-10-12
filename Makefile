@@ -1,4 +1,4 @@
-IMAGE_REPO := "pantheontech"
+IMAGE_REPO := "pringlewood"
 VPP_VERSION := "20.01"
 
 VERSION := $(shell git describe --always --tags --dirty)
@@ -45,7 +45,7 @@ gen: get-desc-adapter-generator dep-install
 	./plugins/crdplugin/scripts/update-codegen.sh ${CRDGEN_DEPS_DIR}
 
 build-images: ## Build all images
-	make cnf-crd-image
+	#make cnf-crd-image
 	make nsm-agent-vpp-image
 	make nsm-agent-linux-image
 

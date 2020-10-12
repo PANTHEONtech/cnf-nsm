@@ -89,5 +89,6 @@ func (a *NSMAgent) AfterInit() error {
 
 // Close closes NSM agent.
 func (a *NSMAgent) Close() error {
+	a.LogManager.Log.Info("[NSM Agent] - Exiting")
 	return nil
 }

@@ -113,6 +113,7 @@ func (d *NSMClientDescriptor) Create(key string, cfg *nsm.NetworkServiceClient) 
 	// by NsmClient.Connect). Therefore we generate a dummy subnet from within the reserved IP address block 0.0.0.0/8
 	// that is unlikely to collide with subnets generated for other clients/endpoints of this agent instance.
 	configuration.IPAddress = generateDummySubnet("client-" + cfg.GetName())
+	d.log.Infof("[NSM Client] - Config: %s \n", configuration)
 
 	nsmClient, err := nsm_sdk_client.NewNSMClient(context.Background(), configuration)
 	if err != nil {
@@ -125,7 +126,8 @@ func (d *NSMClientDescriptor) Create(key string, cfg *nsm.NetworkServiceClient) 
 		configuration.MechanismType, cfg.GetName())
 	if err != nil {
 		_ = nsmClient.Destroy(context.Background())
-		d.log.Error(err)
+		d.log.Error("[NSM Client] - Error connecting to Endpoint")
+		d.log.Errorf("[NSM Client] - Error Connecting: %s", err)
 		return nil, err
 	}
 

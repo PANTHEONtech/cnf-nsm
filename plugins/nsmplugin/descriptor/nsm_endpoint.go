@@ -26,9 +26,9 @@ import (
 	"strconv"
 	"sync"
 
-	"google.golang.org/grpc"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
+	"google.golang.org/grpc"
 
 	"go.ligato.io/cn-infra/v2/datasync"
 	"go.ligato.io/cn-infra/v2/logging"
@@ -43,12 +43,12 @@ import (
 	nsm_connection "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
 	nsm_common "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/common"
 	nsm_memif "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/memif"
-	nsm_registry "github.com/networkservicemesh/networkservicemesh/controlplane/api/registry"
-	nsm_span "github.com/networkservicemesh/networkservicemesh/pkg/tools/spanhelper"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
+	nsm_registry "github.com/networkservicemesh/networkservicemesh/controlplane/api/registry"
+	nsm_sdk_tools "github.com/networkservicemesh/networkservicemesh/pkg/tools"
+	nsm_span "github.com/networkservicemesh/networkservicemesh/pkg/tools/spanhelper"
 	nsm_sdk_common "github.com/networkservicemesh/networkservicemesh/sdk/common"
 	nsm_sdk_endpoint "github.com/networkservicemesh/networkservicemesh/sdk/endpoint"
-	nsm_sdk_tools "github.com/networkservicemesh/networkservicemesh/pkg/tools"
 )
 
 const (
@@ -155,7 +155,7 @@ func NewNSMEndpoint(cfg *nsm.NetworkServiceEndpoint, log logging.Logger,
 // NewNSMEndpoint creates an instance of NSMEndpointDemux.
 func NewNSMEndpointDemux(log logging.Logger) *NSMEndpointDemux {
 	return &NSMEndpointDemux{
-		log:      log,
+		log:       log,
 		endpoints: make(map[string]*endpointReg),
 	}
 }
@@ -411,7 +411,15 @@ func (e *NSMEndpoint) Request(ctx context.Context,
 
 	// check if more than one connection is allowed
 	if e.cfg.GetSingleClient() && len(e.connections) > 0 {
-		return nsmConn, fmt.Errorf("only single client is expected to connect to this endpoint")
+		e.log.Info("[NSM Endpoint] - Cleaning up previous client connections")
+		for connectionIndex := range e.connections {
+			connection := e.connections[connectionIndex]
+			e.log.Infof("[NSM Endpoint] - Removing duplicate NSM connection=%+v", connection)
+			if err := e.closeConnection(ctx, connection.conn); err != nil {
+				return nsmConn, err
+			}
+		}
+		//return nsmConn, fmt.Errorf("only single client is expected to connect to this endpoint")
 	}
 
 	// create connection interface

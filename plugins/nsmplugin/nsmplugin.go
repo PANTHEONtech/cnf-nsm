@@ -60,5 +60,6 @@ func (p *NSMPlugin) Init() error {
 
 // Close is NOOP.
 func (p *NSMPlugin) Close() error {
+	p.Log.Info("[NSM Plugin] - Close from inside NSM Plugin")
 	return nil
 }
