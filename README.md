@@ -1,3 +1,14 @@
+### This repository is archived. No worries, we're still [here](https://pantheon.tech/contact-us/).
+
+```
+ █████  ██████   ██████ ██   ██ ██ ██    ██ ███████ ██████ 
+██   ██ ██   ██ ██      ██   ██ ██ ██    ██ ██      ██   ██
+███████ ██████  ██      ███████ ██ ██    ██ █████   ██   ██
+██   ██ ██   ██ ██      ██   ██ ██  ██  ██  ██      ██   ██
+██   ██ ██   ██  ██████ ██   ██ ██   ████   ███████ ██████                        
+```
+<br><br><br><br><br><br><br>
+
 Seamless integration of CNFs with NSM
 -------------------------------------
 
